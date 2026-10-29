@@ -15,10 +15,10 @@
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
   // ---------- AI providers (swap here or in config.js) ----------
-  async function askAI(messages, mode) {
+  async function askAI(messages, mode, system) {
     const body = {
       model: CFG.model,
-      messages: [{ role: "system", content: SYSTEM[mode] || SYSTEM.chat }, ...messages.slice(-CFG.maxHistory)],
+      messages: [{ role: "system", content: system || SYSTEM[mode] || SYSTEM.chat }, ...messages.slice(-CFG.maxHistory)],
       referrer: CFG.referrer,
       private: true
     };
@@ -38,6 +38,8 @@
     }
     throw lastErr;
   }
+  // Shared with Nyansi Bot and Nyansi Code (bot.js / code.js).
+  window.NyansiAI = { ask: (messages, system) => askAI(messages, null, system), askText: (text, system) => askAI([{ role: "user", content: text }], null, system) };
   function imageURL(prompt) {
     const seed = Math.floor(Math.random() * 1e6);
     return CFG.imageEndpoint + encodeURIComponent(prompt) + `?width=1024&height=1024&nologo=true&seed=${seed}&referrer=${CFG.referrer}`;

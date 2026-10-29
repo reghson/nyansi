@@ -12,6 +12,7 @@
 <link rel="manifest" href="../manifest.json">
 <link rel="icon" href="../icons/logo.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -22,6 +23,10 @@
       <button class="icon-btn only-mobile" id="closeSide" aria-label="Close menu">✕</button>
     </div>
     <button class="new" id="newChat">＋ New chat</button>
+    <div class="side-tools">
+      <button class="tool-link" data-v="bot">🤖 Nyansi Bot <small>Tasks done step by step</small></button>
+      <button class="tool-link" data-v="code">⌨️ Nyansi Code <small>Build &amp; preview code</small></button>
+    </div>
     <div class="label">Chats</div>
     <ul id="convList"></ul>
     <div class="side-foot">
@@ -39,10 +44,16 @@
         <option value="chat">💬 Chat</option>
         <option value="image">🎨 Image</option>
         <option value="write">✍️ Write</option>
-        <option value="code">💻 Code</option>
+        <option value="code">💻 Code help</option>
         <option value="story">🎬 Story &amp; video</option>
       </select>
     </header>
+    <div class="views" role="tablist" aria-label="Nyansi tools">
+      <button role="tab" data-v="chat" class="on">💬 Chat</button>
+      <button role="tab" data-v="bot">🤖 Bot</button>
+      <button role="tab" data-v="code">⌨️ Code</button>
+    </div>
+    <section class="view" id="view-chat">
     <div id="thread" aria-live="polite"></div>
     <div class="empty" id="empty">
       <img src="../icons/logo.svg" alt="" class="hero-logo">
@@ -59,10 +70,107 @@
       <button id="send" type="submit" aria-label="Send">➤</button>
     </form>
     <p class="disclaimer">Nyansi can make mistakes. Check important info.</p>
+    </section>
+
+    <!-- ===== Nyansi Bot: agent mode ===== -->
+    <section class="view" id="view-bot" hidden>
+      <div class="scroll">
+        <div class="tool-hero">
+          <div class="tool-ic">🤖</div>
+          <h2>Nyansi Bot</h2>
+          <p>Give Nyansi a task. It plans the steps, works through each one, and hands you the finished result.</p>
+          <span class="quota" id="botQuota"></span>
+        </div>
+        <form id="botForm" class="task-box">
+          <textarea id="botTask" rows="3" placeholder="e.g. Plan my week: I'm a student with an exam on Friday and football on Wednesday"></textarea>
+          <div class="task-actions">
+            <button type="button" class="ghost-btn" id="botStop" hidden>■ Stop</button>
+            <button type="submit" class="go-btn" id="botGo">Start task →</button>
+          </div>
+        </form>
+        <div class="chips left" id="botChips">
+          <button data-p="Plan my week as a student with an exam on Friday and football practice on Wednesday">📅 Plan my week</button>
+          <button data-p="Write a simple one-page business plan for a small juice bar in Accra">📈 Business plan</button>
+          <button data-p="Research the best ways to start a YouTube channel for kids' stories and give an action plan">🔎 Research a topic</button>
+          <button data-p="Create a 7-day social media content calendar for a hair salon">🗓️ Content calendar</button>
+        </div>
+        <div id="botRun" hidden>
+          <div class="panel">
+            <div class="panel-h"><h3 id="botRunTitle">Steps</h3><span class="status" id="botStatus"></span></div>
+            <ol class="checklist" id="botSteps"></ol>
+          </div>
+          <div class="panel" id="botResult" hidden>
+            <div class="panel-h"><h3>✅ Final result</h3>
+              <div class="btns"><button class="mini" id="botCopy">Copy</button><button class="mini" id="botTxt">⬇ .txt</button><button class="mini" id="botMd">⬇ .md</button></div>
+            </div>
+            <div class="bubble md" id="botFinal"></div>
+          </div>
+        </div>
+        <div class="recent" id="botRecentWrap" hidden>
+          <div class="label">Recent tasks</div>
+          <ul id="botRecent"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Nyansi Code: coding mode ===== -->
+    <section class="view" id="view-code" hidden>
+      <div class="code-ask">
+        <textarea id="codeAsk" rows="2" placeholder="Describe what to build (e.g. a tip calculator), or say what's wrong with the code below…"></textarea>
+        <div class="code-actions">
+          <select id="codeLang" aria-label="Language">
+            <option value="html">HTML page</option>
+            <option value="javascript">JavaScript</option>
+            <option value="css">CSS</option>
+            <option value="python">Python</option>
+          </select>
+          <span class="quota" id="codeQuota"></span>
+          <button class="ghost-btn" data-act="explain">💡 Explain</button>
+          <button class="ghost-btn" data-act="fix">🛠 Fix</button>
+          <button class="go-btn" data-act="build">✨ Build</button>
+        </div>
+      </div>
+      <div class="code-tabs">
+        <button data-t="edit" class="on">Code</button>
+        <button data-t="preview">Preview</button>
+        <button data-t="notes">Notes <i id="notesDot" hidden></i></button>
+      </div>
+      <div class="code-grid" data-show="edit">
+        <div class="pane p-edit">
+          <div class="pane-h"><span>Editor</span>
+            <div class="btns"><button class="mini" id="codeRun">▶ Run</button><button class="mini" id="codeCopy">Copy</button><button class="mini" id="codeDl">⬇ Download</button><button class="mini" id="codeClear">Clear</button></div>
+          </div>
+          <div class="editor-host" id="editorHost"><textarea id="codeArea" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea></div>
+        </div>
+        <div class="pane p-preview">
+          <div class="pane-h"><span>Live preview</span><div class="btns"><button class="mini" id="codeReload">↻ Reload</button></div></div>
+          <iframe id="preview" title="Live preview" sandbox="allow-scripts allow-modals allow-forms"></iframe>
+          <pre class="console" id="codeConsole" hidden></pre>
+        </div>
+        <div class="pane p-notes">
+          <div class="pane-h"><span>Nyansi's notes</span></div>
+          <div class="notes bubble md" id="codeNotes"><p class="hint">Ask Nyansi to build, fix or explain code. Its notes show here.</p></div>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
+<!-- Code editor (CodeMirror 5, MIT licence). If it can't load, Nyansi Code falls back to a plain text box. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/xml-fold.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
 <script src="config.js"></script>
+<script src="prompts.js"></script>
 <script src="markdown.js"></script>
 <script src="app.js"></script>
+<script src="views.js"></script>
+<script src="bot.js"></script>
+<script src="code.js"></script>
 </body>
 </html>

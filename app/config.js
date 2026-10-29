@@ -18,5 +18,7 @@ window.NYANSI_CONFIG = {
   model: "openai",
   imageEndpoint: "https://image.pollinations.ai/prompt/",
   referrer: "nyansi",                             // identifies the app to Pollinations
-  maxHistory: 16                                  // messages sent as context
+  maxHistory: 16,                                 // messages sent as context
+  // Free-plan daily limits (counted on this device) for the agent tools.
+  freeLimits: { bot: 10, code: 30 }
 };
