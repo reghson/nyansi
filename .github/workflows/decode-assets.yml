@@ -26,4 +26,4 @@ jobs:
           git add -A
           git diff --cached --quiet || git commit -m "Decode image assets"
           git push origin HEAD:main
-          git push -f origin HEAD:gh-pages
+          git push origin --delete gh-pages || true
