@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<title>Nyansi · Chat</title>
+<meta name="theme-color" content="#0B0920">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nyansi">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="../manifest.json">
+<link rel="icon" href="../icons/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="shell">
+  <aside id="side">
+    <div class="side-top">
+      <a class="brand" href="../"><img src="../icons/logo.svg" alt="">Nyansi</a>
+      <button class="icon-btn only-mobile" id="closeSide" aria-label="Close menu">✕</button>
+    </div>
+    <button class="new" id="newChat">＋ New chat</button>
+    <div class="label">Chats</div>
+    <ul id="convList"></ul>
+    <div class="side-foot">
+      <button class="icon-btn wide" id="themeBtn">🌙 Dark mode</button>
+      <button class="icon-btn wide" id="installBtn" hidden>⬇ Install app</button>
+      <small>Free plan · answers by Pollinations.AI</small>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <main>
+    <header class="top">
+      <button class="icon-btn only-mobile" id="openSide" aria-label="Open menu">☰</button>
+      <div class="title" id="chatTitle">New chat</div>
+      <select id="mode" aria-label="Mode">
+        <option value="chat">💬 Chat</option>
+        <option value="image">🎨 Image</option>
+        <option value="write">✍️ Write</option>
+        <option value="code">💻 Code</option>
+        <option value="story">🎬 Story &amp; video</option>
+      </select>
+    </header>
+    <div id="thread" aria-live="polite"></div>
+    <div class="empty" id="empty">
+      <img src="../icons/logo.svg" alt="" class="hero-logo">
+      <h1>What can I help with?</h1>
+      <div class="chips">
+        <button data-p="Explain how mobile money works in simple steps">Explain mobile money</button>
+        <button data-m="image" data-p="A cinematic poster of a Ghanaian market at sunset">Create a market poster</button>
+        <button data-m="story" data-p="Give me 3 viral hooks for a 60-second family drama short">Drama hooks</button>
+        <button data-m="code" data-p="Write a simple HTML page with a contact form">HTML contact form</button>
+      </div>
+    </div>
+    <form id="composer">
+      <textarea id="input" rows="1" placeholder="Message Nyansi…" autocomplete="off"></textarea>
+      <button id="send" type="submit" aria-label="Send">➤</button>
+    </form>
+    <p class="disclaimer">Nyansi can make mistakes. Check important info.</p>
+  </main>
+</div>
+<script src="config.js"></script>
+<script src="markdown.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
