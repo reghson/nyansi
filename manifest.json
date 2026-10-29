@@ -1,7 +1,7 @@
 {
   "name": "Nyansi — All-in-one AI",
   "short_name": "Nyansi",
-  "description": "Chat, create images, write, code and plan stories with AI.",
+  "description": "Chat, create images, write and plan with AI. Nyansi Bot does multi-step tasks for you and Nyansi Code builds and previews code.",
   "id": "./app/",
   "start_url": "./app/",
   "scope": "./",
@@ -9,15 +9,56 @@
   "orientation": "portrait",
   "background_color": "#0B0920",
   "theme_color": "#0B0920",
-  "categories": ["productivity", "education", "utilities"],
+  "categories": [
+    "productivity",
+    "education",
+    "utilities"
+  ],
   "icons": [
-    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
-    {"src": "icons/logo.svg", "sizes": "any", "type": "image/svg+xml"}
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
   ],
   "shortcuts": [
-    {"name": "New chat", "url": "./app/"},
-    {"name": "Create an image", "url": "./app/?q=%2Fimage%20a%20golden%20sunrise%20over%20Accra"}
+    {
+      "name": "New chat",
+      "url": "./app/"
+    },
+    {
+      "name": "Nyansi Bot",
+      "short_name": "Bot",
+      "description": "Give Nyansi a task to work through step by step",
+      "url": "./app/?view=bot"
+    },
+    {
+      "name": "Nyansi Code",
+      "short_name": "Code",
+      "description": "Build, fix and preview code",
+      "url": "./app/?view=code"
+    },
+    {
+      "name": "Create an image",
+      "url": "./app/?q=%2Fimage%20a%20golden%20sunrise%20over%20Accra"
+    }
   ]
 }
