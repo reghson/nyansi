@@ -256,6 +256,8 @@
       vids[0].play().catch(() => {});
       if (ac) {
         const now = ac.currentTime + 0.05;
+        // an inaudible tone keeps the audio track running for the whole video (some players stop early otherwise)
+        const bed = ac.createOscillator(), bg = ac.createGain(); bg.gain.value = 0.0001; bed.connect(bg).connect(dest); bed.start(now); srcs.push(bed);
         if (music) {
           const m = ac.createBufferSource(), mg = ac.createGain(); m.buffer = music; m.loop = true;
           const lo = voice ? 0.11 : 0.28, hi = voice ? 0.2 : 0.28;
