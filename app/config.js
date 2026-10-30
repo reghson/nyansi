@@ -21,8 +21,9 @@ window.NYANSI_CONFIG = {
   maxHistory: 16,                                 // messages sent as context
   // Free-plan daily limits (counted on this device) for the agent tools.
   freeLimits: { bot: 10, code: 30 },
-  // Nyansi Create (images and videos) runs on the same backend: POST /image, POST /video, GET /limits.
+  // Nyansi Create runs on the same backend: POST /image, /video, /tts, /storyboard, GET /limits.
   // The real daily limits are enforced by the backend, per device and per network.
+  // A video clip is one 5-second AI scene; a 20-second video uses 4 clips.
   mediaEndpoint: "https://nyansi-api.reghson1.workers.dev",
-  mediaLimits: { image: 20, video: 5 }
+  mediaLimits: { image: 20, video: 10, voice: 15 }
 };
