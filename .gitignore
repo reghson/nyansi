@@ -1,0 +1,8 @@
+.gemini_key
+*.key
+.dev.vars
+.wrangler/
+node_modules/
+worker/node_modules/
+.cf_token
+.cf_account

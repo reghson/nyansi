@@ -1,0 +1,9 @@
+name = "nyansi-api"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+workers_dev = true
+
+# The Gemini key is NOT stored here. Set it as a secret:
+#   wrangler secret put GEMINI_API_KEY < ../.gemini_key
+[vars]
+ALLOWED_ORIGINS = "https://reghson.github.io"
