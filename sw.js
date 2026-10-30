@@ -1,8 +1,9 @@
 // Nyansi service worker: offline app shell. AI requests always go to the network.
-const CACHE = "nyansi-v5";
+const CACHE = "nyansi-v6";
 const SHELL = ["./", "index.html", "styles.css", "manifest.json", "icons/logo.svg", "icons/icon-192.png", "icons/icon-512.png",
   "app/", "app/index.html", "app/app.css", "app/app.js", "app/config.js", "app/markdown.js",
-  "app/prompts.js", "app/views.js", "app/bot.js", "app/code.js", "app/studio.js"];
+  "app/prompts.js", "app/views.js", "app/bot.js", "app/code.js", "app/studio.js",
+  "app/music/calm.m4a.b64", "app/music/upbeat.m4a.b64", "app/music/dramatic.m4a.b64", "app/music/kids.m4a.b64"];
 const CDN = "cdnjs.cloudflare.com"; // code editor files, cached after first use
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
