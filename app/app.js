@@ -3,11 +3,17 @@
   const $ = s => document.querySelector(s);
   const KEY = "nyansi.convs.v1";
   const SYSTEM = {
-    chat: "You are Nyansi, a friendly, wise AI assistant made in Ghana. Give clear, accurate, well-structured answers in simple language. Use markdown (headings, lists, bold, code blocks) when helpful. Keep answers concise unless asked for detail.",
-    write: "You are Nyansi, an expert writing assistant. Help write and polish captions, emails, essays, CVs, scripts and posts. Be clear, engaging and match the requested tone. Use markdown.",
-    code: "You are Nyansi, an expert programming assistant. Explain step by step, give complete working code in fenced code blocks with the language name, and keep explanations short.",
-    story: "You are Nyansi, a creative director for viral short-form video (YouTube Shorts, TikTok, Reels). Give punchy hooks, scene-by-scene scripts, dynamic dialogue, captions and hashtags. Use markdown."
+    chat: "You are Nyansi, a friendly AI assistant made in Ghana. Give clear, correct, well-structured answers in simple language. Use markdown (headings, lists, bold, code blocks) when helpful. Keep answers concise unless asked for detail.",
+    write: "You are Nyansi, a writing assistant. Help write and polish captions, emails, essays, CVs, scripts and posts. Be clear, engaging and match the requested tone. Use markdown. Do not make up facts, statistics, quotes or credentials; leave a clear [placeholder] where the user must add a real detail.",
+    code: "You are Nyansi, a programming assistant. Explain step by step, give complete working code in fenced code blocks with the language name, and keep explanations short. Only use functions and libraries that really exist; if you are unsure an API exists, say so.",
+    story: "You are Nyansi, a script writer for short-form video (YouTube Shorts, TikTok, Reels). Give punchy hooks, scene-by-scene scripts, dialogue, captions and hashtags. Use markdown. Stories can be fiction, but any real-world facts, numbers or trends you mention must be true; if unsure, leave them out."
   };
+  // Honesty rules added to every request (chat, Bot and Code), with today's date.
+  const RULES = () => {
+    const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    return `\n\nToday's date is ${today}. Be accurate rather than confident: if you don't know or aren't sure, say so plainly. Never invent names, numbers, dates, quotes, links or news. Your built-in knowledge may be out of date for recent events, so say so when it matters. Don't claim abilities you don't have (you can't make calls, send messages, browse freely or remember other chats).`;
+  };
+  const NO_SEARCH = () => { const P = window.NYANSI_PROMPTS || {}; return [P.botPlan, P.codeBuild, P.codeFix, P.codeExplain].filter(Boolean); };
 
   let convs = JSON.parse(localStorage.getItem(KEY) || "[]");
   let current = null, busy = false;
@@ -20,14 +26,16 @@
   const sleep = ms => new Promise(res => setTimeout(res, ms));
   const backendReady = () => CFG.provider === "backend" && CFG.chatEndpoint && !CFG.chatEndpoint.includes("<");
 
-  async function askBackend(msgs) {
+  let lastVia = null; // which provider answered the latest request
+  async function askBackend(msgs, search) {
     const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), CFG.backendTimeoutMs || 25000);
     try {
-      const r = await fetch(CFG.chatEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: msgs }), signal: ctl.signal });
+      const r = await fetch(CFG.chatEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: msgs, search }), signal: ctl.signal });
       if (!r.ok) throw new Error("backend " + r.status);
-      const text = (await r.json())?.choices?.[0]?.message?.content;
+      const data = await r.json();
+      const text = data?.choices?.[0]?.message?.content;
       if (!text || !text.trim()) throw new Error("backend empty");
-      return text.trim();
+      return { text: text.trim(), model: data.model, searched: !!data.nyansi?.searched };
     } finally { clearTimeout(timer); }
   }
 
@@ -50,12 +58,21 @@
   }
 
   async function askAI(messages, mode, system) {
-    const msgs = [{ role: "system", content: system || SYSTEM[mode] || SYSTEM.chat }, ...messages.slice(-CFG.maxHistory)];
+    const sys = system || SYSTEM[mode] || SYSTEM.chat;
+    const msgs = [{ role: "system", content: sys + RULES() }, ...messages.slice(-CFG.maxHistory)];
+    const search = !NO_SEARCH().includes(sys); // web search for chat & Bot steps; not for JSON plans or code tools
     if (backendReady()) {
-      try { return await askBackend(msgs); }
-      catch (e) { console.warn("Nyansi backend failed, using free fallback:", e.message || e); }
+      try {
+        const a = await askBackend(msgs, search);
+        lastVia = { provider: "gemini", model: a.model, searched: a.searched };
+        console.info("[Nyansi] answered by backend (Gemini):", a.model, a.searched ? "with web search" : "");
+        return a.text;
+      } catch (e) { console.warn("[Nyansi] backend failed, using backup (Pollinations):", e.message || e); }
     }
-    return askPollinations(msgs);
+    const text = await askPollinations(msgs);
+    lastVia = { provider: "backup" };
+    console.info("[Nyansi] answered by backup (Pollinations)");
+    return text;
   }
   // Shared with Nyansi Bot and Nyansi Code (bot.js / code.js).
   window.NyansiAI = { ask: (messages, system) => askAI(messages, null, system), askText: (text, system) => askAI([{ role: "user", content: text }], null, system) };
@@ -90,6 +107,7 @@
       const a = document.createElement("a"); a.href = m.image; a.target = "_blank"; a.rel = "noopener"; a.append(img); b.append(a);
     } else b.innerHTML = window.renderMarkdown(m.content);
     if (m.error) b.classList.add("err");
+    if (m.role !== "user" && m.via && !m.error) { const v = document.createElement("div"); v.className = "via"; v.textContent = m.via === "gemini" ? "via Gemini" : "via backup"; b.append(v); }
     row.append(av, b); return row;
   }
   function renderThread() {
@@ -121,7 +139,7 @@
       } else {
         const history = current.messages.filter(m => !m.error && !m.image).map(m => ({ role: m.role, content: m.content }));
         const answer = await askAI(history, mode);
-        current.messages.push({ role: "assistant", content: answer });
+        current.messages.push({ role: "assistant", content: answer, via: lastVia?.provider });
       }
     } catch (e) {
       current.messages.push({ role: "assistant", content: "⚠️ " + (e.message || "Network problem. Check your connection and try again."), error: true });

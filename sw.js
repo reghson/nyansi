@@ -1,5 +1,5 @@
 // Nyansi service worker: offline app shell. AI requests always go to the network.
-const CACHE = "nyansi-v3";
+const CACHE = "nyansi-v4";
 const SHELL = ["./", "index.html", "styles.css", "manifest.json", "icons/logo.svg", "icons/icon-192.png", "icons/icon-512.png",
   "app/", "app/index.html", "app/app.css", "app/app.js", "app/config.js", "app/markdown.js",
   "app/prompts.js", "app/views.js", "app/bot.js", "app/code.js"];
