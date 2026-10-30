@@ -26,13 +26,14 @@
     <div class="side-tools">
       <button class="tool-link" data-v="bot">🤖 Nyansi Bot <small>Tasks done step by step</small></button>
       <button class="tool-link" data-v="code">⌨️ Nyansi Code <small>Build &amp; preview code</small></button>
+      <button class="tool-link" data-v="create">🎨 Nyansi Create <small>Images &amp; videos from words</small></button>
     </div>
     <div class="label">Chats</div>
     <ul id="convList"></ul>
     <div class="side-foot">
       <button class="icon-btn wide" id="themeBtn">🌙 Dark mode</button>
       <button class="icon-btn wide" id="installBtn" hidden>⬇ Install app</button>
-      <small>Free plan · answers by Pollinations.AI</small>
+      <small>Free plan</small>
     </div>
   </aside>
   <div class="scrim" id="scrim"></div>
@@ -52,6 +53,7 @@
       <button role="tab" data-v="chat" class="on">💬 Chat</button>
       <button role="tab" data-v="bot">🤖 Bot</button>
       <button role="tab" data-v="code">⌨️ Code</button>
+      <button role="tab" data-v="create">🎨 Create</button>
     </div>
     <section class="view" id="view-chat">
     <div id="thread" aria-live="polite"></div>
@@ -153,6 +155,83 @@
         </div>
       </div>
     </section>
+    <section class="view" id="view-create" hidden>
+      <div class="scroll">
+        <div class="tool-hero">
+          <div class="tool-ic">🎨</div>
+          <h2>Nyansi Create</h2>
+          <p>Turn words into pictures, and pictures or words into short videos.</p>
+          <span class="quota" id="createQuota">Free plan: 20 images + 5 AI videos a day</span>
+        </div>
+        <div class="cr-tabs" role="tablist" aria-label="Create tools">
+          <button role="tab" data-t="t2i" class="on">🖼 Text to Image</button>
+          <button role="tab" data-t="i2v">🎞 Image to Video</button>
+          <button role="tab" data-t="t2v">🎬 Text to Video</button>
+        </div>
+
+        <div class="cr-pane" data-t="t2i">
+          <div class="task-box">
+            <textarea id="t2iPrompt" rows="3" placeholder="Describe the picture, e.g. a colourful kente-pattern sneaker on a wooden table, studio light"></textarea>
+            <div class="cr-opts">
+              <label>Shape <select id="t2iAspect"><option value="1:1">Square 1:1</option><option value="16:9">Wide 16:9</option><option value="9:16">Tall 9:16</option></select></label>
+              <button class="go-btn" id="t2iGo">Create image</button>
+            </div>
+          </div>
+          <div class="chips left">
+            <button data-p="A YouTube thumbnail of a surprised young Ghanaian student holding exam results, bold colours, dramatic light">Thumbnail</button>
+            <button data-p="A minimalist logo for a Kumasi juice shop called Fresh Paa, orange and green, flat vector">Logo</button>
+            <button data-p="A busy Makola market at golden hour, cinematic photo, vibrant fabrics and fruit">Market scene</button>
+            <button data-p="A storybook illustration of Kweku Ananse the spider weaving a golden web under the moon">Story scene</button>
+          </div>
+        </div>
+
+        <div class="cr-pane" data-t="i2v" hidden>
+          <div class="task-box">
+            <label class="cr-drop" id="i2vDrop">
+              <input type="file" id="i2vFile" accept="image/png,image/jpeg,image/webp">
+              <span>📷 Tap to upload a picture</span>
+              <div class="cr-preview" id="i2vPreview" hidden></div>
+            </label>
+            <div id="i2vPicksWrap" hidden><div class="label">Or pick one you made</div><div class="cr-picks" id="i2vPicks"></div></div>
+            <textarea id="i2vPrompt" rows="2" placeholder="How should it move? e.g. the camera slowly zooms in, hair blowing in the wind"></textarea>
+            <div class="cr-opts">
+              <label>Length <select id="i2vLen"><option value="2">2 seconds</option><option value="4">4 seconds</option></select></label>
+              <button class="go-btn" id="i2vGo">Animate picture</button>
+            </div>
+          </div>
+          <div class="chips left">
+            <button data-p="slow cinematic push-in, soft wind moving the fabric">Slow push-in</button>
+            <button data-p="the person smiles and turns their head slightly toward the camera">Smile &amp; turn</button>
+            <button data-p="clouds drift across the sky, light shimmering on the water">Moving sky</button>
+          </div>
+        </div>
+
+        <div class="cr-pane" data-t="t2v" hidden>
+          <div class="task-box">
+            <textarea id="t2vPrompt" rows="3" placeholder="Describe the video, e.g. waves rolling onto a palm-lined Ghana beach at sunrise, drone shot"></textarea>
+            <div class="cr-opts">
+              <label>Shape <select id="t2vAspect"><option value="16:9">Wide 16:9</option><option value="9:16">Tall 9:16</option><option value="1:1">Square 1:1</option></select></label>
+              <label>Length <select id="t2vLen"><option value="2">2 seconds</option><option value="4">4 seconds</option></select></label>
+              <button class="go-btn" id="t2vGo">Create video</button>
+            </div>
+          </div>
+          <div class="chips left">
+            <button data-p="Waves rolling onto a palm-lined beach in Ghana at sunrise, slow drone shot, cinematic">Beach sunrise</button>
+            <button data-p="A street food seller flipping kelewele in a hot pan at night, steam rising, close-up">Street food</button>
+            <button data-p="A red sports car driving fast along a coastal road, tracking shot, golden hour">Car chase</button>
+          </div>
+        </div>
+
+        <div class="cr-progress" id="createProgress" hidden><div class="pg-l">Working…</div><div class="pg-bar"><i></i></div></div>
+        <div class="panel cr-result" id="createResult" hidden></div>
+        <p class="cr-fine">Videos are short AI clips (about 2–4 s) without sound. Please don't create images of real people without their permission.</p>
+
+        <div class="panel" id="createGalleryWrap" hidden>
+          <div class="panel-h"><h3>Your recent creations</h3><span class="label">Saved on this device</span></div>
+          <div class="cr-gallery" id="createGallery"></div>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 <!-- Code editor (CodeMirror 5, MIT licence). If it can't load, Nyansi Code falls back to a plain text box. -->
@@ -172,5 +251,6 @@
 <script src="views.js"></script>
 <script src="bot.js"></script>
 <script src="code.js"></script>
+<script src="studio.js"></script>
 </body>
 </html>
