@@ -7,3 +7,7 @@ workers_dev = true
 #   wrangler secret put GEMINI_API_KEY < ../.gemini_key
 [vars]
 ALLOWED_ORIGINS = "https://reghson.github.io"
+
+[[kv_namespaces]]
+binding = "LIMITS"
+id = "2411ba2681774c62987e403f2c81df67"

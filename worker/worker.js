@@ -1,6 +1,7 @@
 // Nyansi API — Cloudflare Worker that keeps the Gemini key secret.
 // POST /chat  { messages:[{role,content}], model?, stream?, search? }  ->  OpenAI chat.completions shape
 // GET  /health
+// POST /image, POST /video, GET /limits  -> see media.js (free AI images + short AI videos)
 //
 // Accuracy: the model gets today's date and a free `web_search` tool (Wikipedia + Google News RSS).
 // For current facts it searches first and cites results; a short "Sources" list is appended.
@@ -20,11 +21,12 @@ const MAX_TOOL_ROUNDS = 2;
 const RATE = { limit: 30, windowMs: 60_000 };          // per IP per isolate (best effort)
 const hits = new Map();
 let groundingBlockedUntil = 0;
+import { handleImage, handleVideo, limitsInfo } from "./media.js";
 
 function corsHeaders(origin, env) {
   const allowed = (env.ALLOWED_ORIGINS || "https://reghson.github.io").split(",").map(s => s.trim());
   const ok = origin && (allowed.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
-  return ok ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400", "Vary": "Origin" } : { "Vary": "Origin" };
+  return ok ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, X-Nyansi-Device", "Access-Control-Max-Age": "86400", "Vary": "Origin" } : { "Vary": "Origin" };
 }
 const json = (obj, status, cors) => new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json", ...cors } });
 const err = (msg, status, cors, type = "api_error") => json({ error: { message: msg, type } }, status, cors);
@@ -205,11 +207,24 @@ function sse(text, model, fr, cors) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url), origin = request.headers.get("Origin") || "";
     const cors = corsHeaders(origin, env);
     if (request.method === "OPTIONS") return new Response(null, { status: cors["Access-Control-Allow-Origin"] ? 204 : 403, headers: cors });
     if (url.pathname === "/health") return json({ ok: true }, 200, cors);
+    if (["/image", "/video", "/limits"].includes(url.pathname)) {
+      if (origin && !cors["Access-Control-Allow-Origin"]) return err("Origin not allowed", 403, cors, "forbidden");
+      if (url.pathname === "/limits") return json(await limitsInfo(request, env), 200, cors);
+      if (request.method !== "POST") return err("Not found", 404, cors, "not_found");
+      if (rateLimited(request.headers.get("CF-Connecting-IP") || "local")) return err("Too many requests. Please wait a minute.", 429, cors, "rate_limit");
+      const raw = await request.text();
+      if (raw.length > 6 * 1024 * 1024) return err("Picture is too big", 413, cors, "invalid_request_error");
+      let input; try { input = JSON.parse(raw); } catch { return err("Invalid JSON", 400, cors, "invalid_request_error"); }
+      if (url.pathname === "/image") return handleImage(request, env, cors, input);
+      const v = await handleVideo(request, env, cors, input);
+      ctx?.waitUntil?.(v.done);
+      return v.response;
+    }
     if (url.pathname !== "/chat" || request.method !== "POST") return err("Not found", 404, cors, "not_found");
     if (origin && !cors["Access-Control-Allow-Origin"]) return err("Origin not allowed", 403, cors, "forbidden");
     if (!env.GEMINI_API_KEY) return err("Server is missing its AI key", 500, cors);
