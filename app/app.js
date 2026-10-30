@@ -14,29 +14,48 @@
   const save = () => localStorage.setItem(KEY, JSON.stringify(convs.slice(0, 60)));
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-  // ---------- AI providers (swap here or in config.js) ----------
-  async function askAI(messages, mode, system) {
-    const body = {
-      model: CFG.model,
-      messages: [{ role: "system", content: system || SYSTEM[mode] || SYSTEM.chat }, ...messages.slice(-CFG.maxHistory)],
-      referrer: CFG.referrer,
-      private: true
-    };
-    // Both "pollinations" and "backend" use the OpenAI chat-completions format.
-    // A "backend" endpoint is your own server that holds the secret key.
+  // ---------- AI providers (configure in config.js) ----------
+  // 1) Nyansi backend (Cloudflare Worker + Gemini, key kept on the server).
+  // 2) Automatic fallback: free Pollinations.AI. Both speak the OpenAI chat format.
+  const sleep = ms => new Promise(res => setTimeout(res, ms));
+  const backendReady = () => CFG.provider === "backend" && CFG.chatEndpoint && !CFG.chatEndpoint.includes("<");
+
+  async function askBackend(msgs) {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), CFG.backendTimeoutMs || 25000);
+    try {
+      const r = await fetch(CFG.chatEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: msgs }), signal: ctl.signal });
+      if (!r.ok) throw new Error("backend " + r.status);
+      const text = (await r.json())?.choices?.[0]?.message?.content;
+      if (!text || !text.trim()) throw new Error("backend empty");
+      return text.trim();
+    } finally { clearTimeout(timer); }
+  }
+
+  async function askPollinations(msgs) {
+    const body = { model: CFG.fallbackModel || CFG.model || "openai", messages: msgs, referrer: CFG.referrer, private: true };
+    const endpoint = CFG.fallbackEndpoint || CFG.chatEndpoint;
     let lastErr;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const r = await fetch(CFG.chatEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-        if (r.status === 429) { lastErr = new Error("Busy right now — too many requests. Wait a few seconds and try again."); await new Promise(res => setTimeout(res, 4000 * (attempt + 1))); continue; }
+        const r = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (r.status === 429) { lastErr = new Error("Busy right now — too many requests. Wait a few seconds and try again."); await sleep(4000 * (attempt + 1)); continue; }
         if (!r.ok) throw new Error("The AI service returned an error (" + r.status + ").");
         const data = await r.json();
         const text = data?.choices?.[0]?.message?.content;
         if (!text) throw new Error("The AI sent an empty answer. Please try again.");
         return text.trim();
-      } catch (e) { lastErr = e; await new Promise(res => setTimeout(res, 1500)); }
+      } catch (e) { lastErr = e; await sleep(1500); }
     }
     throw lastErr;
+  }
+
+  async function askAI(messages, mode, system) {
+    const msgs = [{ role: "system", content: system || SYSTEM[mode] || SYSTEM.chat }, ...messages.slice(-CFG.maxHistory)];
+    if (backendReady()) {
+      try { return await askBackend(msgs); }
+      catch (e) { console.warn("Nyansi backend failed, using free fallback:", e.message || e); }
+    }
+    return askPollinations(msgs);
   }
   // Shared with Nyansi Bot and Nyansi Code (bot.js / code.js).
   window.NyansiAI = { ask: (messages, system) => askAI(messages, null, system), askText: (text, system) => askAI([{ role: "user", content: text }], null, system) };
