@@ -160,8 +160,8 @@
         <div class="tool-hero">
           <div class="tool-ic">🎨</div>
           <h2>Nyansi Create</h2>
-          <p>Turn words into pictures, and pictures or words into short videos.</p>
-          <span class="quota" id="createQuota">Free plan: 20 images + 5 AI videos a day</span>
+          <p>Turn words into pictures, and pictures or words into videos with voice and music.</p>
+          <span class="quota" id="createQuota">Free plan: 20 images + 10 video clips (5 s each) a day</span>
         </div>
         <div class="cr-tabs" role="tablist" aria-label="Create tools">
           <button role="tab" data-t="t2i" class="on">🖼 Text to Image</button>
@@ -194,8 +194,22 @@
             </label>
             <div id="i2vPicksWrap" hidden><div class="label">Or pick one you made</div><div class="cr-picks" id="i2vPicks"></div></div>
             <textarea id="i2vPrompt" rows="2" placeholder="How should it move? e.g. the camera slowly zooms in, hair blowing in the wind"></textarea>
+            <div class="cr-len">
+              <label>Length <select id="i2vLen"><option value="5">5 seconds</option><option value="10" selected>10 seconds</option><option value="15">15 seconds</option><option value="20">20 seconds</option></select></label>
+              <span class="cr-cost" id="i2vCost">Uses 2 of your 10 daily video clips</span>
+            </div>
+            <details class="cr-audio" open>
+              <summary>🔊 Voice &amp; music</summary>
+              <div class="cr-narr-h"><span class="label">Narration (optional)</span><button type="button" class="ghost-btn sm" id="i2vNarrAuto">✨ Auto-write narration</button></div>
+              <textarea id="i2vNarr" rows="2" maxlength="600" placeholder="What should the voice say? Leave empty and pick a voice to let Nyansi write it."></textarea>
+              <div class="cr-words" id="i2vWords"></div>
+              <div class="cr-opts cr-aopts">
+                <label>Voice <select id="i2vVoice"><option value="none">No voice</option><option value="female">Female</option><option value="male">Male</option><option value="child">Child</option><option value="storyteller" selected>Storyteller</option></select></label>
+                <label>Accent <select id="i2vAccent"><option value="ghana">Ghanaian</option><option value="neutral">Neutral</option></select></label>
+                <label>Music <select id="i2vMusic"><option value="none">No music</option><option value="calm" selected>Calm</option><option value="upbeat">Upbeat</option><option value="dramatic">Dramatic</option><option value="kids">Kids</option></select></label>
+              </div>
+            </details>
             <div class="cr-opts">
-              <label>Length <select id="i2vLen"><option value="2">2 seconds</option><option value="4">4 seconds</option></select></label>
               <button class="go-btn" id="i2vGo">Animate picture</button>
             </div>
           </div>
@@ -209,9 +223,23 @@
         <div class="cr-pane" data-t="t2v" hidden>
           <div class="task-box">
             <textarea id="t2vPrompt" rows="3" placeholder="Describe the video, e.g. waves rolling onto a palm-lined Ghana beach at sunrise, drone shot"></textarea>
+            <div class="cr-len">
+              <label>Length <select id="t2vLen"><option value="5">5 seconds</option><option value="10" selected>10 seconds</option><option value="15">15 seconds</option><option value="20">20 seconds</option></select></label>
+              <span class="cr-cost" id="t2vCost">Uses 2 of your 10 daily video clips</span>
+            </div>
+            <details class="cr-audio" open>
+              <summary>🔊 Voice &amp; music</summary>
+              <div class="cr-narr-h"><span class="label">Narration (optional)</span><button type="button" class="ghost-btn sm" id="t2vNarrAuto">✨ Auto-write narration</button></div>
+              <textarea id="t2vNarr" rows="2" maxlength="600" placeholder="What should the voice say? Leave empty and pick a voice to let Nyansi write it."></textarea>
+              <div class="cr-words" id="t2vWords"></div>
+              <div class="cr-opts cr-aopts">
+                <label>Voice <select id="t2vVoice"><option value="none">No voice</option><option value="female">Female</option><option value="male">Male</option><option value="child">Child</option><option value="storyteller" selected>Storyteller</option></select></label>
+                <label>Accent <select id="t2vAccent"><option value="ghana">Ghanaian</option><option value="neutral">Neutral</option></select></label>
+                <label>Music <select id="t2vMusic"><option value="none">No music</option><option value="calm" selected>Calm</option><option value="upbeat">Upbeat</option><option value="dramatic">Dramatic</option><option value="kids">Kids</option></select></label>
+              </div>
+            </details>
             <div class="cr-opts">
               <label>Shape <select id="t2vAspect"><option value="16:9">Wide 16:9</option><option value="9:16">Tall 9:16</option><option value="1:1">Square 1:1</option></select></label>
-              <label>Length <select id="t2vLen"><option value="2">2 seconds</option><option value="4">4 seconds</option></select></label>
               <button class="go-btn" id="t2vGo">Create video</button>
             </div>
           </div>
@@ -224,7 +252,7 @@
 
         <div class="cr-progress" id="createProgress" hidden><div class="pg-l">Working…</div><div class="pg-bar"><i></i></div></div>
         <div class="panel cr-result" id="createResult" hidden></div>
-        <p class="cr-fine">Videos are short AI clips (about 2–4 s) without sound. Please don't create images of real people without their permission.</p>
+        <p class="cr-fine">Videos are 5–20 s, made of 5-second AI scenes joined on your phone (each scene uses 1 daily clip). Joining with sound plays the video once in real time, so keep the screen on. Music is original Nyansi music, free to use. Please don't create images or voices of real people without their permission.</p>
 
         <div class="panel" id="createGalleryWrap" hidden>
           <div class="panel-h"><h3>Your recent creations</h3><span class="label">Saved on this device</span></div>

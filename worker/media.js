@@ -1,7 +1,10 @@
 // Nyansi media: free AI images and short AI videos through public Hugging Face Spaces (no keys, no billing).
 //   POST /image  { prompt, aspect?: "1:1"|"16:9"|"9:16", seed? }            -> image bytes (X-Nyansi-Provider: ai | backup)
-//   POST /video  { prompt, image?: dataURL (jpeg/png/webp), aspect?, seconds?: 2|4 }
-//                -> NDJSON stream of progress lines, last line { stage:"done", mime, b64, ms } or { stage:"error", message }
+//   POST /video  { prompt, image?: dataURL (jpeg/png/webp), aspect?, seconds?: 1..6 }   (one clip = one video credit)
+//                -> NDJSON stream of progress lines, last line { stage:"done", mime, url, ms } or { stage:"error", message }
+//                   (the browser downloads the clip from url and joins several clips into one longer video)
+//   POST /tts    { text, voice?: female|male|child|storyteller, accent?: ghana|neutral } -> audio/wav (Gemini TTS, free tier)
+//   POST /storyboard { idea, mode: t2v|i2v, scenes, seconds, narration: bool } -> { scenes:[...], narration }
 //   GET  /limits -> today's free use for this IP + device
 // Daily limits are counted per IP and per device (X-Nyansi-Device header) in KV (binding LIMITS).
 
@@ -9,8 +12,9 @@ const IMAGE_SPACE = { host: "black-forest-labs-flux-1-schnell", fn: "infer" };  
 const VIDEO_SPACE = { host: "lightricks-ltx-video-distilled", fn: "text_to_video" }; // LTX-Video distilled (ZeroGPU)
 export const LIMITS = {
   image: { device: 20, ip: 60 },
-  video: { device: 5, ip: 15 },
-  globalVideo: 400                                                                   // whole app per day
+  video: { device: 10, ip: 30 },                                                     // counted in 5-second clips
+  voice: { device: 15, ip: 45 },
+  globalVideo: 800                                                                   // whole app per day
 };
 const DIMS = {
   image: { "1:1": [1024, 1024], "16:9": [1216, 704], "9:16": [704, 1216] },
@@ -47,13 +51,13 @@ async function count(env, kind, w, u) {
 function overLimit(kind, u, w) {
   const L = LIMITS[kind];
   if (kind === "video" && u.global >= LIMITS.globalVideo) return "Nyansi has used today's free video budget. Please try again tomorrow.";
-  if ((w.dev !== "none" && u.device >= L.device) || u.ip >= L.ip) return `You've used today's ${L.device} free ${kind === "video" ? "videos" : "images"}. It resets at midnight (GMT).`;
+  if ((w.dev !== "none" && u.device >= L.device) || u.ip >= L.ip) return `You've used today's ${L.device} free ${{ video: "video clips", image: "images", voice: "voice-overs" }[kind]}. It resets at midnight (GMT).`;
   return null;
 }
 export async function limitsInfo(request, env) {
-  const w = who(request), [i, v] = await Promise.all([usage(env, "image", w), usage(env, "video", w)]);
+  const w = who(request), [i, v, a] = await Promise.all([usage(env, "image", w), usage(env, "video", w), usage(env, "voice", w)]);
   const left = (k, u) => Math.max(0, Math.min(LIMITS[k].device - (w.dev !== "none" ? u.device : 0), LIMITS[k].ip - u.ip));
-  return { day: day(), image: { limit: LIMITS.image.device, left: left("image", i) }, video: { limit: LIMITS.video.device, left: left("video", v) } };
+  return { day: day(), image: { limit: LIMITS.image.device, left: left("image", i) }, video: { limit: LIMITS.video.device, left: left("video", v), unit: "5-second clip" }, voice: { limit: LIMITS.voice.device, left: left("voice", a) } };
 }
 
 // Call a Gradio endpoint (queue API), return the "complete" data array. onEvent gets queue/progress hints.
@@ -134,11 +138,6 @@ export async function handleImage(request, env, cors, input) {
   return new Response(img.body, { headers: H({ "Content-Type": img.headers.get("Content-Type"), "X-Nyansi-Provider": provider, "X-Nyansi-Ms": String(Date.now() - t0), "Cache-Control": "no-store" }) });
 }
 
-function b64(buf) {
-  const bytes = new Uint8Array(buf); let s = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  return btoa(s);
-}
 
 export async function handleVideo(request, env, cors, input) {
   const w = who(request), u = await usage(env, "video", w), over = overLimit("video", u, w);
@@ -152,20 +151,19 @@ export async function handleVideo(request, env, cors, input) {
       if (over) throw Object.assign(new Error(over), { user: true, limit: true });
       const prompt = cleanPrompt(input.prompt || (input.image ? "gentle natural motion, cinematic" : ""));
       const [wd, ht] = DIMS.video[input.aspect] || DIMS.video["16:9"];
-      const secs = input.seconds === 4 ? 4 : 2;
+      const secs = Math.min(6, Math.max(1, Math.round((+input.seconds || 5) * 2) / 2)); // >6 s per clip is unreliable on the free GPU
       let path = null, mode = "text-to-video";
       if (input.image) { send({ stage: "uploading" }); path = await uploadImage(VIDEO_SPACE.host, input.image); mode = "image-to-video"; }
       send({ stage: "starting", mode });
       const res = await gradio(VIDEO_SPACE.host, VIDEO_SPACE.fn,
         [prompt, NEG, path, null, ht, wd, mode, secs, 9, 42, true, 1, true],
         { timeoutMs: 170_000, onEvent: send });
-      send({ stage: "downloading" });
       const f = res[0]?.video || res[0];
-      const r = await fetch(fileUrl(VIDEO_SPACE.host, f));
-      if (!r.ok) throw new Error("file " + r.status);
-      const buf = await r.arrayBuffer();
+      const url = fileUrl(VIDEO_SPACE.host, f);
+      if (!url) throw new Error("no file");
       await count(env, "video", w, u);
-      await send({ stage: "done", mode, mime: "video/mp4", seconds: secs, width: wd, height: ht, ms: Date.now() - t0, b64: b64(buf) });
+      // The browser downloads the clip straight from the Space (CORS allows our origin); no big base64 here.
+      await send({ stage: "done", mode, mime: "video/mp4", seconds: secs, width: wd, height: ht, ms: Date.now() - t0, url });
     } catch (e) {
       console.log("video failed:", e.message);
       const quota = /quota|ZeroGPU|GPU/i.test(e.message);
@@ -174,4 +172,85 @@ export async function handleVideo(request, env, cors, input) {
   };
   const p = run();
   return { response: new Response(readable, { headers: H }), done: p };
+}
+
+// ---------------- voice-over (Gemini TTS, free tier) ----------------
+// 3.1 / 2.5 speak at a natural pace; the 3.8 models are slower, so they are backups. Free quotas are small, hence the chain.
+const TTS_MODELS = ["gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts", "gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"];
+const VOICES = {
+  female: { name: "Kore", style: "Read this at a natural, lively pace in a clear, warm, friendly female voice" },
+  male: { name: "Charon", style: "Read this at a natural pace in a calm, confident, deep male voice" },
+  child: { name: "Leda", style: "Read this at a natural, lively pace in a bright, cheerful, playful young child's voice" },
+  storyteller: { name: "Sulafat", style: "Tell this like a warm, wise storyteller telling a folk tale, expressive but not slow" }
+};
+function wav(pcm, rate = 24000) {
+  const h = new DataView(new ArrayBuffer(44)), w = (o, t) => [...t].forEach((c, i) => h.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); h.setUint32(4, 36 + pcm.length, true); w(8, "WAVE"); w(12, "fmt "); h.setUint32(16, 16, true); h.setUint16(20, 1, true);
+  h.setUint16(22, 1, true); h.setUint32(24, rate, true); h.setUint32(28, rate * 2, true); h.setUint16(32, 2, true); h.setUint16(34, 16, true);
+  w(36, "data"); h.setUint32(40, pcm.length, true);
+  const out = new Uint8Array(44 + pcm.length); out.set(new Uint8Array(h.buffer)); out.set(pcm, 44); return out;
+}
+export async function handleTTS(request, env, cors, input) {
+  const w = who(request), u = await usage(env, "voice", w), over = overLimit("voice", u, w);
+  const J = (o, st) => new Response(JSON.stringify(o), { status: st, headers: { ...cors, "Content-Type": "application/json" } });
+  if (over) return J({ error: { message: over, type: "limit" } }, 429);
+  const text = String(input.text || "").replace(/[\u0000-\u001f]+/g, " ").trim().slice(0, 700);
+  if (!text) return J({ error: { message: "Write something for Nyansi to say." } }, 400);
+  if (BLOCK.test(text)) return J({ error: { message: "That narration isn't allowed." } }, 400);
+  const v = VOICES[input.voice] || VOICES.female;
+  const accent = input.accent === "ghana" ? ", with a natural Ghanaian English accent" : "";
+  const body = { contents: [{ parts: [{ text: `${v.style}${accent}:\n${text}` }] }],
+    generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: v.name } } } } };
+  const t0 = Date.now();
+  for (const m of TTS_MODELS) {
+    try {
+      const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 40000);
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY }, body: JSON.stringify(body), signal: ac.signal }).finally(() => clearTimeout(timer));
+      if (!r.ok) { console.log("tts", m, r.status); continue; }
+      const d = await r.json(), part = d.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+      if (!part) { console.log("tts", m, "no audio"); continue; }
+      let bin = Uint8Array.from(atob(part.inlineData.data), c => c.charCodeAt(0));
+      const mime = part.inlineData.mimeType || "";
+      if (!/wav/i.test(mime)) bin = wav(bin, +(/rate=(\d+)/.exec(mime)?.[1] || 24000));
+      await count(env, "voice", w, u);
+      return new Response(bin, { headers: { ...cors, "Content-Type": "audio/wav", "X-Nyansi-Ms": String(Date.now() - t0), "Access-Control-Expose-Headers": "X-Nyansi-Ms" } });
+    } catch (e) { console.log("tts", m, e.name); }
+  }
+  return J({ error: { message: "The free voice service is busy right now. Please try again later." } }, 503);
+}
+
+// ---------------- storyboard: scene prompts + narration that fits the length ----------------
+const TEXT_MODELS = ["gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash"];
+export async function handleStoryboard(request, env, cors, input) {
+  const J = (o, st = 200) => new Response(JSON.stringify(o), { status: st, headers: { ...cors, "Content-Type": "application/json" } });
+  const idea = cleanPrompt(input.idea || "");
+  const n = Math.min(4, Math.max(1, +input.scenes || 1)), secs = Math.min(24, Math.max(2, +input.seconds || 5));
+  const words = Math.max(5, Math.round((secs - 1.2) * 2));
+  if (!idea && input.mode !== "i2v") return J({ error: { message: "Describe the video first." } }, 400);
+  const task = input.mode === "i2v"
+    ? `The video starts from the user's picture${idea ? ` (user's note: "${idea}")` : ""}. Each scene continues from the last frame of the one before.`
+    : `Video idea from the user: "${idea}".`;
+  const sys = `You write plans for short AI videos made of ${n} scene(s) of about ${Math.round(secs / n)} seconds each (${secs} seconds in total). ${task}
+Return JSON: {"scenes": [${n} strings], "narration": string}.
+- Each scene is one vivid English sentence for a video AI: subject, action, camera move, light. Keep the same characters, place and style in every scene so the story flows; scene 2+ continue the action.
+- ${input.narration ? `narration: a voice-over of at most ${words} words (it must fit in ${secs} seconds when spoken), simple warm English that tells the story. No stage directions.` : 'narration: ""'}
+- Nothing sexual, hateful or violent; no real famous people.`;
+  for (const m of TEXT_MODELS) {
+    try {
+      const body = { systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: idea || "Animate the picture in a natural, cinematic way." }] }],
+        generationConfig: { temperature: 0.8, maxOutputTokens: 800, responseMimeType: "application/json" } };
+      if (/^gemini-3/.test(m)) body.generationConfig.thinkingConfig = { thinkingLevel: "low" };
+      const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 15000);
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY }, body: JSON.stringify(body), signal: ac.signal }).finally(() => clearTimeout(timer));
+      if (!r.ok) { console.log("storyboard", m, r.status); continue; }
+      const d = await r.json(), txt = (d.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || "").join("");
+      const j = JSON.parse(txt.replace(/^```(?:json)?|```$/g, "").trim());
+      let scenes = (Array.isArray(j.scenes) ? j.scenes : []).map(x => cleanPrompt(String(x))).filter(Boolean).slice(0, n);
+      while (scenes.length < n) scenes.push(scenes[scenes.length - 1] || idea);
+      let narration = String(j.narration || "").trim();
+      const ws = narration.split(/\s+/); if (ws.length > words + 3) narration = ws.slice(0, words).join(" ").replace(/[,;:]?$/, ".");
+      return J({ scenes, narration: input.narration ? narration : "", model: m });
+    } catch (e) { console.log("storyboard", m, e.message); }
+  }
+  return J({ error: { message: "Couldn't plan the scenes right now." } }, 503);
 }

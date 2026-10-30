@@ -1,7 +1,7 @@
 // Nyansi API — Cloudflare Worker that keeps the Gemini key secret.
 // POST /chat  { messages:[{role,content}], model?, stream?, search? }  ->  OpenAI chat.completions shape
 // GET  /health
-// POST /image, POST /video, GET /limits  -> see media.js (free AI images + short AI videos)
+// POST /image, POST /video, POST /tts, POST /storyboard, GET /limits  -> see media.js (free AI images, video clips, voice-overs)
 //
 // Accuracy: the model gets today's date and a free `web_search` tool (Wikipedia + Google News RSS).
 // For current facts it searches first and cites results; a short "Sources" list is appended.
@@ -21,7 +21,7 @@ const MAX_TOOL_ROUNDS = 2;
 const RATE = { limit: 30, windowMs: 60_000 };          // per IP per isolate (best effort)
 const hits = new Map();
 let groundingBlockedUntil = 0;
-import { handleImage, handleVideo, limitsInfo } from "./media.js";
+import { handleImage, handleVideo, limitsInfo, handleTTS, handleStoryboard } from "./media.js";
 
 function corsHeaders(origin, env) {
   const allowed = (env.ALLOWED_ORIGINS || "https://reghson.github.io").split(",").map(s => s.trim());
@@ -212,7 +212,7 @@ export default {
     const cors = corsHeaders(origin, env);
     if (request.method === "OPTIONS") return new Response(null, { status: cors["Access-Control-Allow-Origin"] ? 204 : 403, headers: cors });
     if (url.pathname === "/health") return json({ ok: true }, 200, cors);
-    if (["/image", "/video", "/limits"].includes(url.pathname)) {
+    if (["/image", "/video", "/limits", "/tts", "/storyboard"].includes(url.pathname)) {
       if (origin && !cors["Access-Control-Allow-Origin"]) return err("Origin not allowed", 403, cors, "forbidden");
       if (url.pathname === "/limits") return json(await limitsInfo(request, env), 200, cors);
       if (request.method !== "POST") return err("Not found", 404, cors, "not_found");
@@ -221,6 +221,8 @@ export default {
       if (raw.length > 6 * 1024 * 1024) return err("Picture is too big", 413, cors, "invalid_request_error");
       let input; try { input = JSON.parse(raw); } catch { return err("Invalid JSON", 400, cors, "invalid_request_error"); }
       if (url.pathname === "/image") return handleImage(request, env, cors, input);
+      if (url.pathname === "/tts") return handleTTS(request, env, cors, input);
+      if (url.pathname === "/storyboard") return handleStoryboard(request, env, cors, input);
       const v = await handleVideo(request, env, cors, input);
       ctx?.waitUntil?.(v.done);
       return v.response;
