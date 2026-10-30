@@ -20,5 +20,9 @@ window.NYANSI_CONFIG = {
   referrer: "nyansi",                             // identifies the app to Pollinations
   maxHistory: 16,                                 // messages sent as context
   // Free-plan daily limits (counted on this device) for the agent tools.
-  freeLimits: { bot: 10, code: 30 }
+  freeLimits: { bot: 10, code: 30 },
+  // Nyansi Create (images and videos) runs on the same backend: POST /image, POST /video, GET /limits.
+  // The real daily limits are enforced by the backend, per device and per network.
+  mediaEndpoint: "https://nyansi-api.reghson1.workers.dev",
+  mediaLimits: { image: 20, video: 5 }
 };

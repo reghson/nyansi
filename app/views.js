@@ -1,8 +1,8 @@
-/* Nyansi: switch between Chat, Bot and Code, plus shared helpers. */
+/* Nyansi: switch between Chat, Bot, Code and Create, plus shared helpers. */
 (() => {
   const $ = s => document.querySelector(s);
   const CFG = window.NYANSI_CONFIG;
-  const TITLES = { bot: "Nyansi Bot", code: "Nyansi Code" };
+  const TITLES = { bot: "Nyansi Bot", code: "Nyansi Code", create: "Nyansi Create" };
   let chatTitle = "";
 
   // ----- free-plan daily usage (counted on this device) -----
@@ -35,7 +35,7 @@
 
   // ----- view switching -----
   function show(v) {
-    if (!["chat", "bot", "code"].includes(v)) v = "chat";
+    if (!["chat", "bot", "code", "create"].includes(v)) v = "chat";
     document.querySelectorAll(".view").forEach(el => el.hidden = el.id !== "view-" + v);
     document.querySelectorAll(".views button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
     document.querySelectorAll(".tool-link").forEach(b => b.classList.toggle("on", b.dataset.v === v));
